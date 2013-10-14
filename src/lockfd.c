@@ -61,7 +61,7 @@ lockfd_thread(void *arg)
  * Primary entrypoint from Javascript:
  */
 static nvlist_t *
-filelock_lockfd(const nvlist_t *ap)
+lockfd_lockfd(const nvlist_t *ap)
 {
 	lockfd_args_t *lfa = calloc(1, sizeof (*lfa));
 	pthread_t newthr;
@@ -136,7 +136,7 @@ const uint_t v8plus_method_count =
 const v8plus_static_descr_t v8plus_static_methods[] = {
 	{
 		sd_name: "lock_fd",
-		sd_c_func: filelock_lockfd
+		sd_c_func: lockfd_lockfd
 	}
 };
 const uint_t v8plus_static_method_count =
