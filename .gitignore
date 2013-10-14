@@ -1,0 +1,11 @@
+.*.swp
+/0-npm-stamp
+/Makefile
+/downloads/
+/lib/*.node
+/main.js
+/node/
+/node_modules/
+/src/*.o
+/src/mapfile_node
+/src/v8plus_*
