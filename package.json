@@ -4,6 +4,7 @@
   "version": "0.0.4",
   "author": "Joshua M. Clulow <jmc@joyent.com>",
   "repository": "git://github.com/joyent/node-lockfd.git",
+  "main": "./lib/index.js",
   "dependencies": {
     "v8plus": "~0.3.1"
   },
