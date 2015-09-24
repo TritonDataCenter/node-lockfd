@@ -1,6 +1,6 @@
 # node-lockfd
 
-A trivial wrapper around `fcntl(F_SETLK)` (or `F_SETLKW`).  Presently allows
+A trivial wrapper around `fcntl(F_SETLKW)`.  Presently allows
 a synchronous or asynchronous call to get a whole-file, exclusive, advisory
 write lock on a file, or to block until one is possible.
 
