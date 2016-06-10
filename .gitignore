@@ -1,6 +1,5 @@
 .*.swp
 /0-npm-stamp
-/Makefile
 /downloads/
 /lib/*.node
 /main.js
