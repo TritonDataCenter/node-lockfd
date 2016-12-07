@@ -30,13 +30,17 @@ LOCKFD_BINDING	:= ./lib/lockfd_binding.node
 #
 
 .PHONY: all
-all: $(LOCKFD_BINDING) ./node_modules
+all: $(LOCKFD_BINDING) | ./node_modules
 	$(NPM) install
 
-$(LOCKFD_BINDING):
+./node_modules:
+	$(NPM) install
+
+$(LOCKFD_BINDING): | ./node_modules
 	cd src && make
 
-CLEAN_FILES += $(LOCKFD_BINDING)
+clean:
+	rm -rf $(LOCKFD_BINDING) src/*.o node_modules
 
 # Ensure CHANGES.md and package.json have the same version.
 .PHONY: versioncheck

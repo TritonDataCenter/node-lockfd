@@ -2,6 +2,11 @@
 
 ## not yet released
 
+(nothing yet)
+
+## 1.2.0
+
+- joyent/node-lockfd#7: Node v4 support
 - joyent/node-lockfd#6: *Removes* the flock(3C) support added in
   joyent/node-lockfd#5. See the master branch and 2.x releases for
   that functionality.
