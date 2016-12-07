@@ -5,6 +5,11 @@
 
 # node-lockfd
 
+This repository is part of the Joyent Triton project. See the [contribution
+guidelines](https://github.com/joyent/triton/blob/master/CONTRIBUTING.md) --
+*Triton does not use GitHub PRs* -- and general documentation at the main
+[Triton project](https://github.com/joyent/triton) page.
+
 A trivial wrapper around [flock(3C)](https://illumos.org/man/3C/flock) and
 `fcntl(F_SETLKW)`. The provided interfaces presently allow a synchronous or
 asynchronous call to get a whole-file, exclusive, advisory write lock on a file,
@@ -100,6 +105,10 @@ mod_lockfd.flock(lockfileB, mod_lockfd.LOCK_EX, function (err) {
     });
 });
 ```
+
+## Testing
+
+    make clean all test CTFCONVERT=/bin/true CTFMERGE=/bin/true
 
 ## License
 
