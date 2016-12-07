@@ -41,10 +41,13 @@ TOP             := $(shell pwd)
 #
 
 .PHONY: all
-all: $(LOCKFD_BINDING) ./node_modules
+all: $(LOCKFD_BINDING) | ./node_modules
 	$(NPM) install
 
-$(LOCKFD_BINDING):
+./node_modules:
+	$(NPM) install
+
+$(LOCKFD_BINDING): | ./node_modules
 	cd src && make
 
 $(ESLINT):
@@ -53,7 +56,7 @@ $(ESLINT):
 $(TAPE):
 	$(NPM) install
 
-CLEAN_FILES += $(TAPE) ./node_modules/tape $(LOCKFD_BINDING)
+CLEAN_FILES += $(LOCKFD_BINDING) src/lockfd.o src/v8plus_errno.h ./node_modules
 
 .PHONY: test
 test: $(TAPE)

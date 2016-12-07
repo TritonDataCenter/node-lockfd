@@ -4,6 +4,10 @@
 
 (nothing yet)
 
+## 2.0.1
+
+- joyent/node-lockfd#7 Node v4 support
+
 ## 2.0.0
 
 - joyent/node-lockfd#6 Re-branding the 1.1.0 release. The flock(3C)
