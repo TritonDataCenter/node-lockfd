@@ -1,5 +1,10 @@
 # node-lockfd
 
+This repository is part of the Joyent Triton project. See the [contribution
+guidelines](https://github.com/joyent/triton/blob/master/CONTRIBUTING.md) --
+*Triton does not use GitHub PRs* -- and general documentation at the main
+[Triton project](https://github.com/joyent/triton) page.
+
 A trivial wrapper around `fcntl(F_SETLKW)`.  Presently allows
 a synchronous or asynchronous call to get a whole-file, exclusive, advisory
 write lock on a file, or to block until one is possible.
