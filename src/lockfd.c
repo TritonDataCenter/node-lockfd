@@ -21,11 +21,24 @@ typedef struct lockfd_args {
 static const char *
 errno_to_code(int en)
 {
-	return (en == EAGAIN ? "EAGAIN" :
-	    en == ENOLCK ? "ENOLCK" :
-	    en == EINTR ? "EINTR" :
-	    en == EDEADLK ? "EDEADLK" :
-	    "");
+	switch (en) {
+	case EAGAIN:
+		return ("EAGAIN");
+	case ENOLCK:
+		return ("ENOLCK");
+	case EINTR:
+		return ("EINTR");
+	case EDEADLK:
+		return ("EDEADLK");
+	case EBADF:
+		return ("EBADF");
+	case EINVAL:
+		return ("EINVAL");
+	case EOPNOTSUPP:
+		return ("EOPNOTSUPP");
+	default:
+		return ("<unknown errno>");
+	}
 }
 
 /*
@@ -46,7 +59,7 @@ lockfd_thread(void *arg)
 	 * Call back into JS:
 	 */
 	ap = v8plus_obj(
-	    V8PLUS_TYPE_NUMBER, "0", (double) ret,
+	    V8PLUS_TYPE_NUMBER, "0", (double)ret,
 	    V8PLUS_TYPE_STRING, "1", strerror(en),
 	    V8PLUS_TYPE_STRING, "2", errno_to_code(en),
 	    V8PLUS_TYPE_NONE);
@@ -55,7 +68,7 @@ lockfd_thread(void *arg)
 
 	if (!lfa->lfa_run_sync) {
 		/*
-		 * Release our callback, held from the ititial call:
+		 * Release our callback, held from the initial call:
 		 */
 		v8plus_jsfunc_rele(lfa->lfa_cb);
 	}
@@ -66,7 +79,7 @@ lockfd_thread(void *arg)
 }
 
 /*
- * Primary entrypoint from Javascript:
+ * Primary entrypoint from Javascript to lock_fd function:
  */
 static nvlist_t *
 lockfd_lockfd(const nvlist_t *ap)
@@ -118,11 +131,15 @@ lockfd_lockfd(const nvlist_t *ap)
 		v8plus_jsfunc_hold(lfa->lfa_cb);
 
 		/*
-		 * Create a thread for the blocking fcntl(F_SETLKW) call:
+		 * Create a worker thread for the blocking fcntl(F_SETLKW) call:
 		 */
 		if (pthread_create(&newthr, NULL, lockfd_thread, lfa) != 0) {
 			return (v8plus_error(V8PLUSERR_UNKNOWN,
 			    "could not create thread"));
+		}
+		if (pthread_detach(newthr) != 0) {
+			return (v8plus_error(V8PLUSERR_UNKNOWN,
+			    "could not detach thread"));
 		}
 	}
 
