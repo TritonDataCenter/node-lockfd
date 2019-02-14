@@ -38,13 +38,13 @@ function asyncTestRun(t, path, ltype, callback) {
 
 	function getSecondLock() {
 		mod_lockfd.flock(fd2, ltype, function (err) {
-			t.ifErr(err, 'acquired lock successfully');
+			t.ifErr(err, 'workload 2 acquired lock successfully');
 			doWork(fd2, 'workload 2');
 		});
 	}
 
 	mod_lockfd.flock(fd1, ltype, function (err) {
-		t.ifErr(err, 'acquired lock successfully');
+		t.ifErr(err, 'workload 1 acquired lock successfully');
 		process.nextTick(getSecondLock);
 		setTimeout(doWork, TIMEOUT, fd1, 'workload 1');
 	});
