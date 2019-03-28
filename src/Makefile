@@ -17,7 +17,6 @@ ERRNO_JSON =	errno.json
 ifeq ($(shell uname -s),SunOS)
 CC =		/opt/local/bin/gcc
 CXX =		/opt/local/bin/g++
-CFLAGS +=	-pthread -D__EXTENSIONS__
 LIBS +=		-lumem
 else
 CC =		gcc
@@ -26,6 +25,7 @@ CTFCONVERT =	:
 WARN_FLAGS +=	-Wno-error=sign-compare
 endif
 
+CFLAGS +=	-pthread -D__EXTENSIONS__
 WARN_FLAGS +=	-Wno-error=unused-parameter
 
 include $(V8PLUS)/Makefile.v8plus.targ

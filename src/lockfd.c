@@ -1,6 +1,6 @@
 
 /*
- * Copyright 2016, Joyent, Inc.
+ * Copyright 2019 Joyent, Inc.
  */
 
 #include <stdlib.h>
@@ -13,6 +13,7 @@
 #include <pthread.h>
 #include <sys/file.h>
 
+#include <stdint.h>
 #include <libnvpair.h>
 
 #include "v8plus_glue.h"
