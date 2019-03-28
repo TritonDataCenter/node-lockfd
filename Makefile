@@ -18,6 +18,7 @@
 
 TAPE	:= ./node_modules/.bin/tape
 NPM	:= npm
+export SHELL := /bin/bash
 
 #
 # Files

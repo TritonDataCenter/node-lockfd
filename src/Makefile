@@ -21,7 +21,6 @@ LIBS +=		-lumem
 else
 CC =		gcc
 CXX =		g++
-CTFCONVERT =	:
 WARN_FLAGS +=	-Wno-error=sign-compare
 endif
 
