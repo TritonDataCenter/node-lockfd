@@ -1,15 +1,15 @@
 {
   "name": "lockfd",
   "description": "thin wrapper around fcntl(F_SETLK) and flock()",
-  "version": "2.0.1",
+  "version": "2.0.2",
   "author": "Joshua M. Clulow <jmc@joyent.com>",
   "repository": "git://github.com/joyent/node-lockfd.git",
   "main": "./lib/index.js",
   "dependencies": {
-    "v8plus": "~1.0.2"
+    "v8plus": "../v8plus"
   },
   "scripts": {
-    "postinstall": "cd src && gmake $(eval echo ${MAKE_OVERRIDES})",
+    "postinstall": "cd src && make $(eval echo ${MAKE_OVERRIDES})",
     "check": "jshint lib/*.js"
   },
   "devDependencies": {

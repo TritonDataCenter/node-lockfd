@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2013 Joyent, Inc.  All rights reserved.
+# Copyright 2019 Joyent, Inc.
 #
 
 PREFIX_NODE :=	$(shell dirname $$(bash -c 'hash node; hash -t node'))/..
@@ -14,14 +14,18 @@ SRCS =	\
 
 ERRNO_JSON =	errno.json
 
+ifeq ($(shell uname -s),SunOS)
 CC =		/opt/local/bin/gcc
 CXX =		/opt/local/bin/g++
-
 CFLAGS +=	-pthread -D__EXTENSIONS__
+LIBS +=		-lumem
+else
+CC =		gcc
+CXX =		g++
+CTFCONVERT =	:
+WARN_FLAGS +=	-Wno-error=sign-compare
+endif
 
 WARN_FLAGS +=	-Wno-error=unused-parameter
-
-#LDFLAGS +=	-L/usr/lib/fm -R/usr/lib/fm
-LIBS +=		-lumem
 
 include $(V8PLUS)/Makefile.v8plus.targ
