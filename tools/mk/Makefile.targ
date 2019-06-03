@@ -1,40 +1,72 @@
-# -*- mode: makefile -*-
-#
+
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 
 #
-# Copyright (c) 2014, Joyent, Inc.
+# Copyright (c) 2019, Joyent, Inc.
 #
 
 #
 # Makefile.targ: common targets.
 #
-# NOTE: This makefile comes from the "eng" repo. It's designed to be dropped
-# into other repos as-is without requiring any modifications. If you find
-# yourself changing this file, you should instead update the original copy in
-# eng.git and then update your repo to use the new version.
+
+#
+# NOTE: This makefile comes from the "eng" repo. If you find yourself changing
+# this file, you should ensure that you test all consumers of it, since
+# eng.git is a git submodule of several repositories. After testing, push
+# changes to the eng.git gerrit project as normal, then do the following for
+# each component that uses eng.git, likely reusing the original ticket subject
+# for the commit message as was used for the eng.git push.
+#
+#    $ git submodule update --remote deps/eng
+#    $ git add deps/eng
+#    $ git commit -m "TOOLS-xxxx some description" deps/eng
+#
+# Then push those changes to gerrit as usual for review.
+#
+
 #
 # This Makefile defines several useful targets and rules. You can use it by
 # including it from a Makefile that specifies some of the variables below.
 #
 # Targets defined in this Makefile:
 #
-#	check	Checks JavaScript files for lint and style
-#		Checks bash scripts for syntax
-#		Checks SMF manifests for validity against the SMF DTD
+#	bits-upload	Upload the bits produced by the component Makefile's
+#			'publish' target to Manta or a local filesystem,
+#			optionally publishing images to updates.joyent.com
 #
-#	clean	Removes built files
+#	bits-upload-latest
+#			As above, but use the bits/<component>/latest-build-stamp
+#			file to determine the $(STAMP) of the uploaded bits
 #
-#	docs	Builds restdown documentation in docs/
+#	buildimage	Builds an image
+#	check		Checks JavaScript files for lint and style
+#			Checks bash scripts for syntax
+#			Checks SMF manifests for validity against the SMF DTD
+#			Checks rust files using `cargo check`
 #
-#	prepush	Depends on "check" and "test"
+#	clean		Removes built files
 #
-#	test	Does nothing (you should override this)
+#	docs		Builds restdown documentation in docs/
 #
-#	xref	Generates cscope (source cross-reference index)
+#	prepublish	Is depended upon by "publish", saves the $(STAMP)
+#			of our last published bits, used by bits-upload.sh,
+#			as well as data about the build environment
+#
+#	prepush		Depends on "check" and "test"
+#
+#	show-buildenv	Emits the pkgsrc version required for this component,
+#			if available
+#
+#	test		Does nothing (you should override this)
+#
+#	validate-buildenv
+#			Runs a series of checks to determine if the build
+#			environment is valid for this component
+#
+#	xref		Generates cscope (source cross-reference index)
 #
 # For details on what these targets are supposed to do, see the Joyent
 # Engineering Guide.
@@ -70,12 +102,27 @@
 #
 #	JSSTYLE_FILES	JavaScript files to be style-checked
 #
+#	RUST_CODE	Set this to enable rust code syntax checks.
+#
 # You can also override these variables:
 #
 #	BASH		Path to bash (default: "bash")
 #
+#	BUILD		top-level directory for node binaries, generated docs,
+#			and any other build output (default: "build")
+#
+#	CARGO		Path to cargo (default: "cargo")
+#
 #	CSCOPE_DIRS	Directories to search for source files for the cscope
 #			index. (default: ".")
+#
+#	ENGBLD_BITS_UPLOAD_OVERRIDE
+#			Set this to allow a component Makefile to declare its
+#			own 'bits-upload' and 'bits-upload-latest' targets
+#
+#	ESLINT		Path to eslint (default: "eslint")
+#
+#	ESLINT_FLAGS	Additional flags to pass through to eslint
 #
 #	JSL		Path to JavaScriptLint (default: "jsl")
 #
@@ -98,10 +145,12 @@
 # Defaults for the various tools we use.
 #
 BASH		?= bash
-BASHSTYLE	?= tools/bashstyle
+BASHSTYLE   	?= $(NODE) deps/eng/tools/bashstyle
+CARGO		?= cargo
 CP		?= cp
 CSCOPE		?= cscope
 CSCOPE_DIRS	?= .
+ESLINT		?= eslint
 JSL		?= jsl
 JSON		?= json
 JSSTYLE		?= jsstyle
@@ -122,8 +171,8 @@ endif
 #
 # Defaults for other fixed values.
 #
-BUILD		= build
-DISTCLEAN_FILES += $(BUILD)
+BUILD		?= build
+DISTCLEAN_FILES += $(BUILD) bits
 DOC_BUILD	= $(BUILD)/docs/public
 
 #
@@ -190,6 +239,12 @@ check-json: $(JSON_FILES:%=%.jsonchk)
 # a variable for the target itself *only if* the list of input files is
 # non-empty.  This avoids invoking the tool if there are no files to check.
 #
+
+ESLINT_TARGET = $(if $(ESLINT_FILES), check-eslint)
+.PHONY: check-eslint
+check-eslint: $(ESLINT_EXEC)
+	$(ESLINT) $(ESLINT_FLAGS) $(ESLINT_FILES)
+
 JSL_NODE_TARGET = $(if $(JSL_FILES_NODE), check-jsl-node)
 .PHONY: check-jsl-node
 check-jsl-node: $(JSL_EXEC)
@@ -208,8 +263,13 @@ JSSTYLE_TARGET = $(if $(JSSTYLE_FILES), check-jsstyle)
 check-jsstyle:  $(JSSTYLE_EXEC)
 	$(JSSTYLE) $(JSSTYLE_FLAGS) $(JSSTYLE_FILES)
 
+RUST_CHECK_TARGET = $(if $(RUST_CODE), check-rust)
+.PHONY: check-rust
+check-rust:
+	$(CARGO) check
+
 .PHONY: check
-check:: check-jsl check-json $(JSSTYLE_TARGET) check-bash
+check:: $(ESLINT_TARGET) check-jsl check-json $(JSSTYLE_TARGET) check-bash $(RUST_CHECK_TARGET)
 	@echo check ok
 
 .PHONY: clean
@@ -264,7 +324,7 @@ DOC_MEDIA_FILES_BUILD := $(DOC_MEDIA_FILES:%=$(DOC_BUILD)/media/%)
 # to get there.
 #
 .PHONY: docs
-docs:							\
+docs::							\
 	$(DOC_FILES:%$(RESTDOWN_EXT)=$(DOC_BUILD)/%.html)		\
 	$(DOC_FILES:%$(RESTDOWN_EXT)=$(DOC_BUILD)/%.json)		\
 	$(DOC_MEDIA_FILES_BUILD)
@@ -294,6 +354,7 @@ CLEAN_FILES +=					\
 $(DOC_MEDIA_FILES_BUILD): | $(DOC_MEDIA_DIRS_BUILD)
 
 $(DOC_BUILD)/%: docs/% | $(DOC_BUILD)
+	$(MKDIR) $(shell dirname $@)
 	$(CP) $< $@
 
 docs/%.json docs/%.html: docs/%$(RESTDOWN_EXT) | $(DOC_BUILD) $(RESTDOWN_EXEC) \
@@ -316,3 +377,184 @@ test:
 
 .PHONY: prepush
 prepush: check test
+
+#
+# Ensure we have a sane build environment. The script includes an escape
+# hatch in case of emergencies. set ENGBLD_SKIP_VALIDATE_BUILDENV=true in the
+# environment to have it always pass.
+#
+.PHONY: validate-buildenv
+validate-buildenv:
+	$(TOP)/deps/eng/tools/validate-buildenv.sh
+
+.PHONY: show-buildenv
+show-buildenv:
+	@$(TOP)/deps/eng/tools/validate-buildenv.sh -r
+
+#
+# Everything should depend on us having a valid build environment.
+#
+all release publish buildimage: validate-buildenv
+
+publish: prepublish
+
+#
+# Store some information about the build environment. The latest-build-stamp
+# file is used if running the 'bits-upload-latest' target. See bits-upload.sh.
+# When generating npm-ls.json output, we ignore errors since older versions
+# of npm seem to sometimes install packages that /opt/tools/bin/npm deems
+# "invalid". That shouldn't be allowed to fail the build.
+#
+.PHONY: prepublish
+prepublish:
+	-mkdir -p $(ENGBLD_BITS_DIR)/$(NAME)
+	echo $(STAMP) > $(ENGBLD_BITS_DIR)/$(NAME)/latest-build-stamp
+	@echo "Generating $(ENGBLD_BITS_DIR)/$(NAME)/build-environment"
+	@if [[ "$$(uname -s)" == "SunOS" ]]; then \
+		MAKE_PID=$$(/usr/bin/ps -o ppid= -p $$$$); \
+		BUILD_IMG_UUID=$$($(PFEXEC) /usr/sbin/mdata-get sdc:image_uuid); \
+		echo hostname: $$(/usr/bin/hostname) > $(ENGBLD_BITS_DIR)/$(NAME)/build-environment; \
+		/usr/bin/cat /etc/pkgsrc_version >> $(ENGBLD_BITS_DIR)/$(NAME)/build-environment; \
+		echo image_uuid: $$BUILD_IMG_UUID >> $(ENGBLD_BITS_DIR)/$(NAME)/build-environment; \
+	fi
+	@echo "Generating $(ENGBLD_BITS_DIR)/$(NAME)/npm-ls.json"
+	-/opt/tools/bin/npm ls --json > $(ENGBLD_BITS_DIR)/$(NAME)/npm-ls.json
+
+
+#
+# Transform the boolean into the appropriate cli flag
+#
+ifdef BUILDIMAGE_DO_PKGSRC_UPGRADE
+BUILDIMAGE_DO_PKGSRC_UPGRADE_ARGS=-u
+endif
+
+
+#
+# The list of pkgsrc packages that should be installed in the
+# image that the 'buildimage' target constructs. Set here rather than
+# in Makefile.defs to ensure it's always computed after $(BUILDIMAGE_PKGSRC)
+# is set.
+#
+ifdef BUILDIMAGE_PKGSRC
+BUILDIMAGE_PKGSRC_ARGS = -p $$(echo $(BUILDIMAGE_PKGSRC) | sed -e 's/ /,/g')
+else
+BUILDIMAGE_PKGSRC_ARGS =
+endif
+
+#
+# BUILDIMAGE_PKG should nearly always be set to $(TOP)/$(RELEASE_TARBALL),
+# but ensure RELEASE_TARBALL is set before setting that default.
+#
+ifeq ($(ENGBLD_USE_BUILDIMAGE), true)
+
+ifndef BUILDIMAGE_PKG
+  ifndef RELEASE_TARBALL
+    $(error "Error: RELEASE_TARBALL must be set before including Makefile.targ")
+  else
+    BUILDIMAGE_PKG=$(TOP)/$(RELEASE_TARBALL)
+  endif
+endif
+
+endif
+
+#
+# We add a guard to ensure that users haven't invoked 'make buildimage'
+# by accident. It's better to bail out early with an clear error message
+# if a user has not declared that their component should $ENGBLD_USE_BUILDIMAGE.
+#
+.PHONY: buildimage
+buildimage: stamp-buildimage-prep release $(AGENTS:%=%-prebuilt)
+	if [[ "$(ENGBLD_USE_BUILDIMAGE)" != "true" ]]; then \
+		echo "This component is not configured to use buildimage."; \
+		echo "Set 'ENGBLD_USE_BUILDIMAGE=true' in the component Makefile otherwise."; \
+		exit 1; \
+	fi
+	mkdir -p $(ENGBLD_BITS_DIR)/$(NAME)
+	mkdir -p $(BUILDIMAGE_STAGEDIR)
+	cd $(BUILDIMAGE_STAGEDIR) ; \
+	$(TOP)/deps/eng/tools/buildimage-extract-pkg.sh $(BUILDIMAGE_PKG)
+	$(PFEXEC) chown -R root:root $(BUILDIMAGE_STAGEDIR)
+	cd $(BUILDIMAGE_STAGEDIR); \
+	$(PFEXEC) $(BUILDIMAGE) \
+		-i $(BASE_IMAGE_UUID) \
+		-d $(BUILDIMAGE_STAGEDIR)/root \
+		-m '$(BUILDIMAGE_MF)' \
+		$(BUILDIMAGE_DO_PKGSRC_UPGRADE_ARGS) \
+		$(BUILDIMAGE_PKGSRC_ARGS) \
+		-a \
+		-P $(NAME)-zfs
+	cp /tmp/$(NAME)-zfs-$(BUILDIMAGE_VERSION).zfs.gz $(ENGBLD_BITS_DIR)/$(NAME)
+	cp /tmp/$(NAME)-zfs-$(BUILDIMAGE_VERSION).imgmanifest $(ENGBLD_BITS_DIR)/$(NAME)
+	cp /tmp/$(NAME)-zfs-$(BUILDIMAGE_VERSION).pkgaudit $(ENGBLD_BITS_DIR)/$(NAME)
+	$(PFEXEC) rm /tmp/$(NAME)-zfs-$(BUILDIMAGE_VERSION).zfs.gz
+	$(PFEXEC) rm /tmp/$(NAME)-zfs-$(BUILDIMAGE_VERSION).imgmanifest
+	$(PFEXEC) rm /tmp/$(NAME)-zfs-$(BUILDIMAGE_VERSION).pkgaudit
+	$(PFEXEC) rm -rf $(BUILDIMAGE_STAGEDIR)
+
+#
+# Upload the build products from this component's ./bits directory
+# to either manta or a filesystem path. We allow consumers to override
+# this, supplying their own custom bits-upload* targets by setting
+# ENGBLD_BITS_UPLOAD_OVERRIDE.
+#
+ifndef ENGBLD_BITS_UPLOAD_OVERRIDE
+.PHONY: bits-upload
+bits-upload: publish $(BUILDIMAGE_TARG)
+	$(TOP)/deps/eng/tools/bits-upload.sh \
+		-b $(BRANCH) \
+		-B "$(TRY_BRANCH)" \
+		$(BITS_UPLOAD_LOCAL_ARG) \
+		$(BITS_UPLOAD_IMGAPI_ARG) \
+		-d $(ENGBLD_DEST_OUT_PATH)/$(NAME) \
+		-D $(ENGBLD_BITS_DIR) \
+		-n $(NAME) \
+		-t $(STAMP)
+
+#
+# A convenience target that doesn't require us to do a full build. We derive
+# the timestamp for the bits being uploaded from the latest-build-stamp file
+# in build/bits directory, produced by the 'prepublish' target.
+#
+.PHONY: bits-upload-latest
+bits-upload-latest:
+	$(TOP)/deps/eng/tools/bits-upload.sh \
+		-b $(BRANCH) \
+		-B "$(TRY_BRANCH)" \
+		$(BITS_UPLOAD_LOCAL_ARG) \
+		$(BITS_UPLOAD_IMGAPI_ARG) \
+		-d $(ENGBLD_DEST_OUT_PATH)/$(NAME) \
+		-D $(ENGBLD_BITS_DIR) \
+		-n $(NAME)
+endif
+
+#
+# Do an npm install for the dependencies of buildimage itself.
+#
+$(STAMP_BUILDIMAGE_PREP):
+	$(MAKE_STAMP_REMOVE); \
+	cd $(TOP)/deps/eng/tools/buildimage; \
+	$(MAKE) buildimage-prep
+	$(MAKE_STAMP_CREATE)
+
+#
+# This rule automatically exposes every "stamp" file as a target that can be
+# invoked manually as "stamp-$STAMP_NAME".  For example, if a stamp has been
+# defined thus:
+#
+#	STAMP_EXPENSIVE_RESULT := $(MAKE_STAMPS_DIR)/expensive-result
+#
+# ... this can be invoked manually as "make stamp-expensive-result".  Note that
+# these phony targets are essentially just for interactive usage.  Targets
+# should be specified to depend on the macro containing the stamp file name.
+#
+# See also the comments in "Makefile.defs".
+#
+stamp-%: $(MAKE_STAMPS_DIR)/%
+	@:
+
+#
+# Allow for easier Makefile debugging. 'make print-FOO' will emit the value
+# of $(FOO).
+#
+print-%:
+	@echo '$*=$($*)'

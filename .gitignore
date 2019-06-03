@@ -1,6 +1,6 @@
 .*.swp
 /0-npm-stamp
-/downloads/
+/build
 /lib/*.node
 /main.js
 /node/

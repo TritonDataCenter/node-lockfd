@@ -1,4 +1,3 @@
-# -*- mode: makefile -*-
 #
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
@@ -6,16 +5,27 @@
 #
 
 #
-# Copyright (c) 2014, Joyent, Inc.
+# Copyright 2019 Joyent, Inc.
 #
 
 #
 # Makefile.defs: common defines.
+
 #
-# NOTE: This makefile comes from the "eng" repo. It's designed to be dropped
-# into other repos as-is without requiring any modifications. If you find
-# yourself changing this file, you should instead update the original copy in
-# eng.git and then update your repo to use the new version.
+# NOTE: This makefile comes from the "eng" repo. If you find yourself changing
+# this file, you should ensure that you test all consumers of it, since
+# eng.git is a git submodule of several repositories. After testing, push
+# changes to the eng.git gerrit project as normal, then do the following for
+# each component that uses eng.git, likely reusing the original ticket subject
+# for the commit message as was used for the eng.git push.
+#
+#    $ git submodule update --remote deps/eng
+#    $ git add deps/eng
+#    $ git commit -m "TOOLS-xxxx some description" deps/eng
+#
+# Then push those changes to gerrit as usual for review.
+#
+
 #
 # This makefile defines some useful defines. Include it at the top of
 # your Makefile.
@@ -28,8 +38,22 @@
 #			the TIMESTAMP envvar (used by MG-based builds).
 #	STAMP		A build stamp to use in built package names.
 #
+#	MAKE_STAMPS_DIR	The directory in which make stamp files are to be
+#			created.  See comments below on expensive targets.
+#
+#	CACHE_DIR	A directory tree in which temporary files may be
+#			collected by download, tarball extraction, etc.  This
+#			directory is completely removed by "make distclean".
+#			Files in this directory are not intended to be shipped.
+#
 
-TOP := $(shell pwd)
+#
+# Note that variables that start with "ENGBLD_" are ones we expect developers
+# may want to override in their environment, usually to modify build output
+# destinations, but sometimes to modify the behavior of the build.
+#
+
+TOP ?= $(shell pwd)
 
 #
 # Mountain Gorilla-spec'd versioning.
@@ -49,3 +73,143 @@ STAMP := $(BRANCH)-$(TIMESTAMP)-$(_GITDESCRIBE)
 
 # node-gyp will print build info useful for debugging with V=1
 export V=1
+
+CACHE_DIR ?=		cache
+DISTCLEAN_FILES +=	$(CACHE_DIR)
+
+# Many components assemble *-pkg*.gz tarballs as build products
+CLEAN_FILES +=  $(NAME)-pkg*.gz
+
+#
+# EXPENSIVE TARGETS AND MAKE STAMP FILES
+#
+# Targets which are expensive to run and lack a single file that marks
+# completion are difficult to track with make; e.g., "npm install".  One
+# solution to this problem is to create "stamp" files with symbolic names which
+# are created as the final step in a complex make rule in order to mark
+# completion.
+#
+# In order to make these more uniform, and easier to target with "make clean",
+# we will attempt to store them under a single directory.  Note that these
+# files are never targets for shipping in build artefacts.
+#
+# Stamp-backed targets come in several parts.  First, a macro should be defined
+# which names a file in the MAKE_STAMPS_DIR directory.  Then, a target which
+# creates this stamp file must be provided.  The recipe for this target should
+# use MAKE_STAMP_REMOVE and MAKE_STAMP_CREATE to perform the appropriate stamp
+# management.
+#
+# For example:
+#
+# --- Makefile.*.defs:
+#
+#	$(STAMP_EXPENSIVE_RESULT) := $(MAKE_STAMPS_DIR)/expensive-result
+#
+# --- Makefile.*.targ:
+#
+#	$(STAMP_EXPENSIVE_RESULT): input/file another/input/file
+#		$(MAKE_STAMP_REMOVE)
+#		rm -rf output_tree/  # <--- ensure a clean slate
+#		expensive_program -o output_tree/ $^
+#		$(MAKE_STAMP_CREATE)
+#
+# NOTE: Every stamp file is exposed as an implicit "stamp-$STAMP_NAME" target.
+# The example above could be built manually by invoking:
+#
+#	make stamp-expensive-result
+#
+MAKE_STAMPS_DIR ?=	make_stamps
+CLEAN_FILES +=		$(MAKE_STAMPS_DIR)
+
+MAKE_STAMP_REMOVE =	mkdir -p $(@D); rm -f $(@)
+MAKE_STAMP_CREATE =	mkdir -p $(@D); touch $(@)
+
+#
+# Nearly all components in Triton/Manta currently require the build machine to
+# be running this platform image, validated as part of validate-buildenv.sh.
+# Makefiles that allow newer platforms should override this.
+#
+BUILD_PLATFORM=20151126T062538Z
+
+#
+# The manta path where the bits-upload target stores build artifacts, via
+# ./deps/eng/tools/bits-upload.sh. This can be a Manta path, or an absolute
+# filesystem path. If the latter, be sure to also set
+# $ENGBLD_BITS_UPLOAD_LOCAL=true, see below.
+#
+ENGBLD_DEST_OUT_PATH ?= /public/builds
+
+#
+# Makefiles must declare whether they need to construct a ZFS image
+# by setting ENGBLD_USE_BUILDIMAGE to 'true'. We use this mechanism
+# so that we can conditionally add a buildimage dependency to the
+# 'bits-upload' target.
+#
+ifeq ($(ENGBLD_USE_BUILDIMAGE), true)
+BUILDIMAGE_TARG = buildimage
+else
+BUILDIMAGE_TARG =
+endif
+
+#
+# If bits-upload should use a local dest_dir, set that argument based on
+# $ENGBLD_BITS_UPLOAD_LOCAL in the environment.
+#
+ifeq ($(ENGBLD_BITS_UPLOAD_LOCAL), true)
+BITS_UPLOAD_LOCAL_ARG = -L
+else
+BITS_UPLOAD_LOCAL_ARG =
+endif
+
+#
+# If bits-upload should publish images to updates.joyent.com, set that argument
+# based on $ENGBLD_BITS_UPLOAD_IMGAPI in the environment.
+#
+ifeq ($(ENGBLD_BITS_UPLOAD_IMGAPI), true)
+BITS_UPLOAD_IMGAPI_ARG = -p
+else
+BITS_UPLOAD_IMGAPI_ARG =
+endif
+
+#
+# A directory for build artifacts, used by the bits-upload, publish and
+# buildimage targets. If BITS_DIR is set, use that instead, to remain
+# compatible with MG-driven builds.
+#
+ENGBLD_BITS_DIR ?= $(TOP)/bits
+ifdef BITS_DIR
+  ENGBLD_BITS_DIR = $(BITS_DIR)
+endif
+
+#
+# A pointer to the buildimage tool, and a stamp-name used to install
+# its dependencies.
+#
+BUILDIMAGE = $(TOP)/deps/eng/tools/buildimage/bin/buildimage
+STAMP_BUILDIMAGE_PREP := $(MAKE_STAMPS_DIR)/buildimage-prep
+
+#
+# Metadata needed by buildimage to construct the image.
+# This gets used when generating the image's manifest file.
+#
+BUILDIMAGE_VERSION	?= $(STAMP)
+BUILDIMAGE_STAGEDIR = /tmp/buildimage-$(NAME)-$(STAMP)
+BUILDIMAGE_MF           ?= \
+    {"name": "$(BUILDIMAGE_NAME)",\
+    "description": "$(BUILDIMAGE_DESC)",\
+    "version": "$(BUILDIMAGE_VERSION)",\
+    "tags": {"smartdc_service": true}\
+    }
+
+#
+# Crude detection of whether we're likely to need to use
+# pfexec to gain root-like privileges. Note that this means
+# $(PFEXEC) will only be defined if we're running the build
+# as non-root.
+#
+UID = $(shell /usr/bin/id -u)
+ifeq ($(UID), 0)
+    PFEXEC=
+else
+    PFEXEC=/usr/bin/pfexec
+endif

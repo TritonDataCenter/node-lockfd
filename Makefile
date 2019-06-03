@@ -5,19 +5,23 @@
 #
 
 #
-# Copyright 2016, Joyent, Inc.
+# Copyright 2019, Joyent, Inc.
 #
 
 #
 # node-lockfd Makefile
 #
 
+NAME	:= lockfd
+
 #
 # Tools
 #
 
 TAPE	:= ./node_modules/.bin/tape
-NPM	:= npm
+NODE := node
+NPM := $(shell which npm)
+NPM_EXEC=$(NPM)
 
 #
 # Files
@@ -26,34 +30,28 @@ NPM	:= npm
 JS_FILES	:= $(shell find lib test -name '*.js')
 JSSTYLE_FILES	= $(JS_FILES)
 JSSTYLE_FLAGS	= -f tools/jsstyle.conf
-ESLINT		= ./node_modules/.bin/eslint
-ESLINT_CONF	= tools/eslint.node.conf
 ESLINT_FILES	= $(JS_FILES)
 JSON_FILES	:= package.json
 LOCKFD_BINDING	:= ./lib/lockfd_binding.node
 
 include ./tools/mk/Makefile.defs
 
-TOP             := $(shell pwd)
+TOP	:= $(shell pwd)
 
 #
 # Repo-specific targets
 #
 
 .PHONY: all
-all: $(LOCKFD_BINDING) | ./node_modules
+all: $(LOCKFD_BINDING)
+
+./node_modules/v8plus: | $(NPM_EXEC)
 	$(NPM) install
 
-./node_modules:
-	$(NPM) install
-
-$(LOCKFD_BINDING): | ./node_modules
+$(LOCKFD_BINDING): | ./node_modules/v8plus
 	cd src && make
 
-$(ESLINT):
-	$(NPM) install
-
-$(TAPE):
+$(TAPE): | $(NPM_EXEC)
 	$(NPM) install
 
 CLEAN_FILES += $(LOCKFD_BINDING) src/lockfd.o src/v8plus_errno.h ./node_modules
@@ -65,10 +63,6 @@ test: $(TAPE)
 		$(NODE_EXEC) $(TAPE) $$F ;\
 		[[ $$? == "0" ]] || exit 1; \
 	done)
-
-.PHONY: check
-check:: $(ESLINT)
-	$(ESLINT) -c $(ESLINT_CONF) $(ESLINT_FILES)
 
 # Ensure CHANGES.md and package.json have the same version.
 .PHONY: versioncheck

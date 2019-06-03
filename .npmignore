@@ -1,6 +1,15 @@
+.*.swp
+*.tgz
+/0-npm-stamp
 /Makefile
+/build
 /deps
 /test
 /tools
 /.gitmodules
 /.npmignore
+/.eslintrc
+/lib/*.node
+/src/*.o
+/src/mapfile_node
+/src/v8plus_*

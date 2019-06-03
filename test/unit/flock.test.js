@@ -32,6 +32,7 @@ function asyncTestRun(t, path, ltype, callback) {
 				mod_fs.closeSync(fd1);
 				mod_fs.closeSync(fd2);
 				callback(results);
+				return;
 			}
 		});
 	}
@@ -63,6 +64,7 @@ function syncTestRun(_, path, ltype, callback) {
 		} else if (done === 2) {
 			mod_fs.closeSync(fd1);
 			callback(results);
+			return;
 		}
 	}
 
