@@ -49,7 +49,6 @@ $ export PATH=/opt/node-v6.17.1-linux-x64/bin:$PATH
 
 ```
 $ git clone -b portable https://github.com/mgerdts/node-lockfd.git
-$ git clone -b portable https://github.com/mgerdts/v8plus.git
 $ cd node-lockfd
 $ npm install
 ```
