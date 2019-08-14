@@ -28,6 +28,32 @@ contains information on exceptions to this behaviour.
 Note that `flock()` was added to libc in SmartOS in the 20150219 release, so
 building and running on older platforms will fail.
 
+## Building
+
+Experimenetal support exists for Linux with node 6.
+
+### CentOS 7
+
+```
+$ sudo yum install -y gcc-c++ libuv-devel nodejs-devel
+```
+
+### Ubuntu 18.04
+
+```
+$ curl https://nodejs.org/dist/v6.17.1/node-v6.17.1-linux-x64.tar.gz | sudo tar xzf - -C /opt
+$ export PATH=/opt/node-v6.17.1-linux-x64/bin:$PATH
+```
+
+### Common
+
+```
+$ git clone -b portable https://github.com/mgerdts/node-lockfd.git
+$ git clone -b portable https://github.com/mgerdts/v8plus.git
+$ cd node-lockfd
+$ npm install
+```
+
 ## Usage
 
 ### lockfd(fd, callback)
