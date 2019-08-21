@@ -6,7 +6,7 @@
   "repository": "git://github.com/joyent/node-lockfd.git",
   "main": "./lib/index.js",
   "dependencies": {
-    "v8plus": "git://github.com/mgerdts/v8plus.git#87f3c6965a39d467b7ae18215aef09ac2c2016d6"
+    "v8plus": "git://github.com/joyent/v8plus.git#fac9fc39afddb3d57c89ec41c7bddba61b606ff6"
   },
   "scripts": {
     "postinstall": "cd src && make $(eval echo ${MAKE_OVERRIDES})",
