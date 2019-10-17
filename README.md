@@ -1,14 +1,14 @@
 
 <!--
-    Copyright 2016, Joyent, Inc.
+    Copyright 2019 Joyent, Inc.
 -->
 
 # node-lockfd
 
 This repository is part of the Joyent Triton project. See the [contribution
-guidelines](https://github.com/joyent/triton/blob/master/CONTRIBUTING.md) --
-*Triton does not use GitHub PRs* -- and general documentation at the main
-[Triton project](https://github.com/joyent/triton) page.
+guidelines](https://github.com/joyent/triton/blob/master/CONTRIBUTING.md)
+and general documentation at the main [Triton
+project](https://github.com/joyent/triton) page.
 
 A trivial wrapper around [flock(3C)](https://illumos.org/man/3C/flock) and
 `fcntl(F_SETLKW)`. The provided interfaces presently allow a synchronous or
