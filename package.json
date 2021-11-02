@@ -3,7 +3,7 @@
   "description": "thin wrapper around fcntl(F_SETLK) and flock()",
   "version": "2.0.2",
   "author": "Joshua M. Clulow <jmc@joyent.com>",
-  "repository": "git://github.com/joyent/node-lockfd.git",
+  "repository": "https://github.com/joyent/node-lockfd.git",
   "main": "./lib/index.js",
   "dependencies": {
     "v8plus": "~1.0.3"
